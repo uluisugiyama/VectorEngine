@@ -1,0 +1,22 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secret Files (CRITICAL)
+.env
+.streamlit/secrets.toml
+
+# OS Specific
+.DS_Store
+
+# Local Database/Storage
+chroma_db/
+chroma/
+*.db
