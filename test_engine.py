@@ -180,7 +180,20 @@ def run_store_text_tests(engine):
         if len(long_ids) > 1 and (after_count == before_count + len(long_ids)):
             print(f"PASS: Long document chunked successfully (produced {len(long_ids)} chunks).")
             # Verify sequential indexing and counting metadata
-            stored_chunks = engine.collection.get(ids=long_ids)
+            stored_chunks = engine.collection.get(ids=long_ids, include=["embeddings", "metadatas", "documents"])
+            
+            # Verify embedding dimensionality
+            expected_dim = engine.embedding_model.get_sentence_embedding_dimension()
+            dims_correct = True
+            for vec in stored_chunks["embeddings"]:
+                if len(vec) != expected_dim:
+                    dims_correct = False
+                    print(f"FAIL: Expected dim {expected_dim}, got {len(vec)}")
+                    break
+            
+            if dims_correct:
+                print(f"PASS: Chunk embeddings all have the correct dimensionality ({expected_dim}).")
+                
             # Reorder them to match our indices to see sequence
             chunk_metas = stored_chunks["metadatas"]
             # ID alignment confirmation

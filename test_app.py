@@ -23,22 +23,32 @@ if not os.environ.get("GROQ_API_KEY"):
 TEST_CHROMA_DIR = "./chroma_db"
 
 
+@patch("rag_engine.chromadb.PersistentClient")
 @patch("rag_engine.Groq")
 @patch("rag_engine.SentenceTransformer")
-def test_streamlit_app(mock_st_cls, mock_groq_cls):
+def test_streamlit_app(mock_st_cls, mock_groq_cls, mock_persist_client):
     """
     Smoke test verifying UI wiring: file upload → sidebar update → Q&A → answer display.
     
     Mock decorator order (bottom-up):
     - @patch("rag_engine.SentenceTransformer")  → mock_st_cls  (innermost = first arg)
-    - @patch("rag_engine.Groq")                 → mock_groq_cls (outermost = second arg)
+    - @patch("rag_engine.Groq")                 → mock_groq_cls (middle = second arg)
+    - @patch("rag_engine.chromadb.PersistentClient") → mock_persist_client (outermost = third arg)
     """
     print("Initializing AppTest simulation with mocked externals...")
 
+    from chromadb import EphemeralClient
+    mock_persist_client.side_effect = lambda path=None, settings=None: EphemeralClient(settings=settings)
+
     # --- Configure SentenceTransformer mock ---
+    def fake_encode(text_or_list, *args, **kwargs):
+        if isinstance(text_or_list, str):
+            return np.random.rand(384).astype(np.float32)
+        return np.random.rand(len(text_or_list), 384).astype(np.float32)
+
     mock_model_instance = MagicMock()
-    # Return a consistent fake 384-dim embedding for any input
-    mock_model_instance.encode.return_value = np.random.rand(384).astype(np.float32)
+    mock_model_instance.encode.side_effect = fake_encode
+    mock_model_instance.get_sentence_embedding_dimension.return_value = 384
     mock_st_cls.return_value = mock_model_instance
 
     # --- Configure Groq mock ---

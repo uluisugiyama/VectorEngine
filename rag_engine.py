@@ -111,7 +111,16 @@ class VectorEngine:
                 "chunk_count": len(chunks)
             })
 
-        # 4. Insert into ChromaDB collection in batch
+        # 4. Dimensionality Guard
+        expected_dim = self.embedding_model.get_sentence_embedding_dimension()
+        for vec in embeddings:
+            if len(vec) != expected_dim:
+                raise RuntimeError(
+                    f"Embedding dimension mismatch during ingestion: expected {expected_dim}, "
+                    f"got {len(vec)}. This indicates a shape bug in embedding generation."
+                )
+
+        # 5. Insert into ChromaDB collection in batch
         self.collection.add(
             ids=ids,
             embeddings=embeddings,
