@@ -1,7 +1,14 @@
 import os
 import uuid
 import logging
+import warnings
 from typing import Optional
+
+# B2 fix: suppress tokenizers parallelism fork warning (must be set before SentenceTransformer import)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
+# B2 fix: suppress huggingface_hub resume_download deprecation (cosmetic, not a functional issue)
+warnings.filterwarnings("ignore", message="`resume_download` is deprecated")
 import groq
 from groq import Groq
 import chromadb
@@ -47,6 +54,10 @@ class VectorEngine:
         else:
             self.chroma_client = chromadb.EphemeralClient(settings=chroma_settings)
             
+        # TODO (multi-tenant): The collection name "rag_collection" is currently shared across all engine
+        # instances using the same persist_directory. Before any real deployment, decide whether to
+        # support per-user/per-session isolated collections (multi-tenant) or accept shared state.
+        # This is explicitly out of scope until deployment planning.
         self.collection = self.chroma_client.get_or_create_collection(
             name="rag_collection"
         )
