@@ -56,10 +56,11 @@ class VectorEngine:
         else:
             self.chroma_client = chromadb.EphemeralClient(settings=chroma_settings)
             
-        # TODO (multi-tenant): The collection name "rag_collection" is currently shared across all engine
-        # instances using the same persist_directory. Before any real deployment, decide whether to
-        # support per-user/per-session isolated collections (multi-tenant) or accept shared state.
-        # This is explicitly out of scope until deployment planning.
+        # Single-tenant design: one shared collection for all sessions using the same
+        # persist_directory. This is intentional for personal or single-team use — all
+        # uploaded documents are available to all sessions. If per-user isolation is
+        # needed in the future, accept a `collection_name` parameter here and derive
+        # a per-session name in the calling application.
         self.collection = self.chroma_client.get_or_create_collection(
             name="rag_collection"
         )
