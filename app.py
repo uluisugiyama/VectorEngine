@@ -5,6 +5,10 @@ import groq
 
 from rag_engine import VectorEngine
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
 # Page Config
 st.set_page_config(
     page_title="VectorEngine RAG Assistant",
@@ -28,6 +32,7 @@ if "engine" not in st.session_state:
         # Save persistence data to ./chroma_db
         st.session_state.engine = VectorEngine(api_key=api_key, persist_directory="./chroma_db")
     except Exception as e:
+        logger.exception("Failed to initialize VectorEngine: %s", str(e))
         st.error(f"Failed to initialize VectorEngine: {e}")
         st.stop()
 
@@ -54,6 +59,7 @@ if not st.session_state.ingested_docs:
                     st.session_state.ingested_docs[source] = chunk_count
                     st.session_state.processed_files.add(source)
     except Exception as e:
+        logger.exception("Could not restore database state from storage: %s", str(e))
         st.warning(f"Could not restore database state from storage: {e}")
 
 # --- Sidebar (Ingestion Panel) ---
@@ -100,6 +106,7 @@ if uploaded_files:
                 st.session_state.ingested_docs[filename] = len(chunk_ids)
                 st.sidebar.success(f"✓ Ingested: {filename} ({len(chunk_ids)} chunks)")
             except Exception as e:
+                logger.exception("Error processing uploaded file %s: %s", filename, str(e))
                 st.sidebar.error(f"❌ Error processing {filename}: {str(e)}")
 
 # Display Ingested Sources
@@ -123,6 +130,7 @@ if st.session_state.ingested_docs:
             st.success("Knowledge base cleared successfully!")
             st.rerun()
         except Exception as e:
+            logger.exception("Failed to clear knowledge base: %s", str(e))
             st.sidebar.error(f"Failed to clear knowledge base: {e}")
 else:
     st.sidebar.divider()
@@ -203,6 +211,7 @@ if question:
                     "sources": sources
                 })
             except Exception as e:
+                logger.exception("Error generating answer: %s", str(e))
                 err_msg = f"Error generating answer: {str(e)}"
                 message_placeholder.error(err_msg)
                 st.session_state.messages.append({

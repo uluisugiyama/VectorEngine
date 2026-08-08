@@ -19,6 +19,8 @@ from sentence_transformers import SentenceTransformer
 # Suppress chromadb telemetry warnings caused by posthog version mismatch
 logging.getLogger('chromadb.telemetry.product.posthog').setLevel(logging.CRITICAL)
 
+logger = logging.getLogger("vectorengine")
+
 
 class VectorEngine:
     """
@@ -97,10 +99,14 @@ class VectorEngine:
         if not text or not isinstance(text, str) or not text.strip():
             raise ValueError("Empty text cannot be stored.")
 
+        logger.info("store_text called: source='%s', input_length=%d chars", source, len(text))
+
         # 2. Splitting text into chunks
         chunks = self.text_splitter.split_text(text)
         if not chunks:
             raise ValueError("Empty text cannot be stored.")
+
+        logger.info("Chunked into %d chunk(s) for source='%s'", len(chunks), source)
 
         # 3. Create lists for batch insert
         ids = []
@@ -126,6 +132,7 @@ class VectorEngine:
         expected_dim = self.embedding_model.get_sentence_embedding_dimension()
         for vec in embeddings:
             if len(vec) != expected_dim:
+                logger.error("Embedding dimension mismatch: expected %d, got %d (source='%s')", expected_dim, len(vec), source)
                 raise RuntimeError(
                     f"Embedding dimension mismatch during ingestion: expected {expected_dim}, "
                     f"got {len(vec)}. This indicates a shape bug in embedding generation."
@@ -139,6 +146,7 @@ class VectorEngine:
             metadatas=metadatas
         )
 
+        logger.info("Ingestion complete: %d chunk(s) stored, ids=%s", len(ids), ids)
         return ids
 
     def search(self, query: str, top_k: int = 3) -> dict:
@@ -170,6 +178,8 @@ class VectorEngine:
         if not query or not isinstance(query, str) or not query.strip():
             raise ValueError("Query cannot be empty.")
 
+        logger.debug("search called: query_length=%d chars, top_k=%d", len(query), top_k)
+
         if not isinstance(top_k, int) or top_k < 1:
             raise ValueError("top_k must be a positive integer.")
 
@@ -188,12 +198,14 @@ class VectorEngine:
         )
 
         # 4. Unwrap Chroma nested format & return flat dic
-        return {
+        flat = {
             "documents": results.get("documents", [[]])[0] if results.get("documents") else [],
             "metadatas": results.get("metadatas", [[]])[0] if results.get("metadatas") else [],
             "distances": results.get("distances", [[]])[0] if results.get("distances") else [],
             "ids": results.get("ids", [[]])[0] if results.get("ids") else []
         }
+        logger.debug("search returned %d result(s), top distance=%.4f", len(flat["documents"]), flat["distances"][0] if flat["distances"] else -1)
+        return flat
 
     def ask(self, question: str, top_k: int = 3, return_sources: bool = False) -> str:
         """
@@ -223,6 +235,8 @@ class VectorEngine:
         # 1. Validation
         if not question or not isinstance(question, str) or not question.strip():
             raise ValueError("Question cannot be empty.")
+
+        logger.info("ask called: question_length=%d chars, top_k=%d", len(question), top_k)
 
         # 2. Retrieval
         try:
@@ -269,12 +283,15 @@ Answer:"""
                 temperature=0.0
             )
             answer = response.choices[0].message.content
+            logger.info("Groq completion received: answer_length=%d chars", len(answer))
             if return_sources:
                 return answer, sources
             return answer
         except groq.APIError as e:
+            logger.error("Groq API call failed: %s", str(e))
             raise RuntimeError(f"Groq API error occurred: {e}") from e
         except Exception as e:
+            logger.error("Groq API call failed: %s", str(e))
             raise RuntimeError(f"An unexpected error occurred while communicating with Groq: {e}") from e
 
 
