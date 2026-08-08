@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.streamlit/
+chroma_db/
+test_engine.py
+test_app.py
+test_live.*
+*.txt
+!requirements.txt
+*.pdf
+.env
+.git/
