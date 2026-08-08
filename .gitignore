@@ -19,4 +19,4 @@ __pycache__/
 # Local Database/Storage
 chroma_db/
 chroma/
-*.db
+*.dbtest_live.*
